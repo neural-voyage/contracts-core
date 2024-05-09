@@ -8,10 +8,10 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 import 'contracts/access/OracleManaged.sol';
-import 'contracts/fees/IStablzFeeHandler.sol';
+import 'contracts/fees/INeuralFeeHandler.sol';
 
-/// @title Stablz LP integration
-abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
+/// @title Neural LP integration
+abstract contract NeuralLPIntegration is OracleManaged, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public immutable feeHandler;
@@ -57,7 +57,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     modifier onlyDepositTokens(address _token) {
         require(
             isDepositToken(_token),
-            'StablzLPIntegration: Token is not a supported deposit token'
+            'NeuralLPIntegration: Token is not a supported deposit token'
         );
         _;
     }
@@ -66,7 +66,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     modifier onlyWithdrawalTokens(address _token) {
         require(
             isWithdrawalToken(_token),
-            'StablzLPIntegration: Token is not a supported withdrawal token'
+            'NeuralLPIntegration: Token is not a supported withdrawal token'
         );
         _;
     }
@@ -75,7 +75,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     modifier onlyRewardTokens(address _token) {
         require(
             isRewardToken(_token),
-            'StablzLPIntegration: Token is not a supported reward token'
+            'NeuralLPIntegration: Token is not a supported reward token'
         );
         _;
     }
@@ -85,7 +85,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     constructor(address _oracle, address _feeHandler) {
         require(
             _feeHandler != address(0),
-            'StablzLPIntegration: _feeHandler cannot be the zero address'
+            'NeuralLPIntegration: _feeHandler cannot be the zero address'
         );
         _setOracle(_oracle);
         feeHandler = _feeHandler;
@@ -102,15 +102,15 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     ) external nonReentrant onlyDepositTokens(_stablecoin) {
         require(
             !isShutdown,
-            'StablzLPIntegration: Integration shutdown, depositing is no longer available'
+            'NeuralLPIntegration: Integration shutdown, depositing is no longer available'
         );
         require(
             isDepositingEnabled,
-            'StablzLPIntegration: Depositing is not allowed at this time'
+            'NeuralLPIntegration: Depositing is not allowed at this time'
         );
         require(
             _normalize(_stablecoin, _amount) >= depositThreshold && _amount > 0,
-            'StablzLPIntegration: Deposit threshold not met'
+            'NeuralLPIntegration: Deposit threshold not met'
         );
         uint lpTokens = _deposit(_stablecoin, _amount, _minLPAmount);
         emit Deposit(_msgSender(), _stablecoin, _amount, lpTokens);
@@ -127,9 +127,9 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     ) external nonReentrant onlyWithdrawalTokens(_stablecoin) {
         require(
             !isShutdown,
-            'StablzLPIntegration: Cannot withdraw using this function, use withdrawAfterShutdown instead'
+            'NeuralLPIntegration: Cannot withdraw using this function, use withdrawAfterShutdown instead'
         );
-        require(_lpTokens > 0, 'StablzLPIntegration: _lpTokens is invalid');
+        require(_lpTokens > 0, 'NeuralLPIntegration: _lpTokens is invalid');
         uint received = _withdraw(_stablecoin, _lpTokens, _minAmount);
         emit Withdraw(_msgSender(), _stablecoin, _lpTokens, received);
     }
@@ -149,12 +149,12 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     function withdrawAfterShutdown() external nonReentrant {
         require(
             isShutdown,
-            'StablzLPIntegration: Cannot withdraw using this function, use withdraw instead'
+            'NeuralLPIntegration: Cannot withdraw using this function, use withdraw instead'
         );
         require(
             !users[_msgSender()].hasEmergencyWithdrawn &&
                 users[_msgSender()].lpBalance > 0,
-            'StablzLPIntegration: Nothing to withdraw'
+            'NeuralLPIntegration: Nothing to withdraw'
         );
         users[_msgSender()].hasEmergencyWithdrawn = true;
         _withdrawAfterShutdown();
@@ -169,18 +169,18 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
         _harvest(_minAmounts);
     }
 
-    /// @notice Handle the collected fee and transfer to StablzFeeHandler
+    /// @notice Handle the collected fee and transfer to NeuralFeeHandler
     /// @param _minAmount minimum amount of stablecoin to receive
     function handleFee(
         uint _minAmount
     ) external onlyOwnerOrOracle nonReentrant {
         require(
             totalUnhandledFee > 0,
-            'StablzLPIntegration: No fees to handle'
+            'NeuralLPIntegration: No fees to handle'
         );
         require(
             isShutdown || totalUnhandledFee >= feeHandlingThreshold,
-            'StablzLPIntegration: Collected fees are below threshold'
+            'NeuralLPIntegration: Collected fees are below threshold'
         );
         _handleFee(_minAmount);
     }
@@ -192,7 +192,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     ) external onlyOwnerOrOracle {
         require(
             !isShutdown,
-            'StablzLPIntegration: Integration is already shutdown'
+            'NeuralLPIntegration: Integration is already shutdown'
         );
         isShutdown = true;
         _emergencyShutdown(_minAmounts);
@@ -203,7 +203,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     function enableDepositing() external onlyOwner {
         require(
             !isShutdown,
-            'StablzLPIntegration: Enabling deposits is not allowed due to the integration being shutdown'
+            'NeuralLPIntegration: Enabling deposits is not allowed due to the integration being shutdown'
         );
         isDepositingEnabled = true;
         emit DepositingEnabled();
@@ -213,7 +213,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     function disableDepositing() external onlyOwner {
         require(
             !isShutdown,
-            'StablzLPIntegration: Deposits are already disabled due to the integration being shutdown'
+            'NeuralLPIntegration: Deposits are already disabled due to the integration being shutdown'
         );
         isDepositingEnabled = false;
         emit DepositingDisabled();
@@ -332,7 +332,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     ) internal virtual returns (uint received) {
         require(
             _lpTokens <= users[_msgSender()].lpBalance,
-            'StablzLPIntegration: Amount exceeds your LP balance'
+            'NeuralLPIntegration: Amount exceeds your LP balance'
         );
         _mergeRewards();
 
@@ -347,7 +347,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     /// @param _minAmounts Minimum amounts for harvesting, data is specific to integration
     function _harvest(uint[10] memory _minAmounts) internal virtual {
         uint total = _farmHarvest(_minAmounts);
-        uint fee = IStablzFeeHandler(feeHandler).calculateFee(total);
+        uint fee = INeuralFeeHandler(feeHandler).calculateFee(total);
         uint rewards = total - fee;
         _distribute(rewards);
         totalUnhandledFee += fee;
@@ -358,7 +358,7 @@ abstract contract StablzLPIntegration is OracleManaged, ReentrancyGuard {
     function _distribute(uint _rewards) internal virtual {
         require(
             totalActiveDeposits > 0,
-            'StablzLPIntegration: No active deposits'
+            'NeuralLPIntegration: No active deposits'
         );
         currentRewardFactor +=
             (rewardFactorAccuracy * _rewards) /

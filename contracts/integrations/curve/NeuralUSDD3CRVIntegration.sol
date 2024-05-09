@@ -2,10 +2,10 @@
 
 pragma solidity =0.8.9;
 
-import 'contracts/integrations/curve/common/Stablz3CRVMetaPoolIntegration.sol';
+import 'contracts/integrations/curve/common/Neural3CRVMetaPoolIntegration.sol';
 
-/// @title Stablz USDD-3CRV pool integration
-contract StablzUSDD3CRVIntegration is Stablz3CRVMetaPoolIntegration {
+/// @title Neural USDD-3CRV pool integration
+contract NeuralUSDD3CRVIntegration is Neural3CRVMetaPoolIntegration {
     /// @dev Meta pool specific addresses
     address private constant USDD_3CRV_POOL =
         0xe6b5CC1B4b47305c58392CE3D359B10282FC36Ea;
@@ -18,7 +18,7 @@ contract StablzUSDD3CRVIntegration is Stablz3CRVMetaPoolIntegration {
         address _oracle,
         address _feeHandler
     )
-        Stablz3CRVMetaPoolIntegration(
+        Neural3CRVMetaPoolIntegration(
             USDD_3CRV_POOL,
             USDD_3CRV_GAUGE,
             _oracle,

@@ -4,18 +4,18 @@ pragma solidity =0.8.9;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
-import 'contracts/fees/IStablzFeeHandler.sol';
+import 'contracts/fees/INeuralFeeHandler.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVGauge.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVPool.sol';
 import 'contracts/integrations/curve/common/ICurveSwap.sol';
 import 'contracts/chainlink/common/ChainLinkAutomation.sol';
-import 'contracts/integrations/curve/common/Stablz3CRVMetaPoolIntegration.sol';
+import 'contracts/integrations/curve/common/Neural3CRVMetaPoolIntegration.sol';
 
-/// @title ChainLink automation for Stablz 3CRV integrations
-contract AutomateStablz3CRVIntegration is ChainLinkAutomation {
+/// @title ChainLink automation for Neural 3CRV integrations
+contract AutomateNeural3CRVIntegration is ChainLinkAutomation {
     using SafeERC20 for IERC20;
 
-    Stablz3CRVMetaPoolIntegration public immutable integration;
+    Neural3CRVMetaPoolIntegration public immutable integration;
     address internal constant CRV_TOKEN =
         0xD533a949740bb3306d119CC777fa900bA034cd52;
     uint public metaToken3CRVRewardThreshold = 50 ether;
@@ -36,7 +36,7 @@ contract AutomateStablz3CRVIntegration is ChainLinkAutomation {
         uint feeSwapSlippage
     );
 
-    /// @param _integration Stablz 3CRV meta pool integration address
+    /// @param _integration Neural 3CRV meta pool integration address
     /// @param _keeperRegistry Chainlink keeper registry address
     constructor(
         address _integration,
@@ -44,9 +44,9 @@ contract AutomateStablz3CRVIntegration is ChainLinkAutomation {
     ) ChainLinkAutomation(_keeperRegistry) {
         require(
             _integration != address(0),
-            'AutomateStablz3CRVIntegration: _integration cannot be the zero address'
+            'AutomateNeural3CRVIntegration: _integration cannot be the zero address'
         );
-        integration = Stablz3CRVMetaPoolIntegration(_integration);
+        integration = Neural3CRVMetaPoolIntegration(_integration);
     }
 
     /// @notice Set the minimum threshold for 3CRV rewards received from harvesting each reward type
@@ -79,15 +79,15 @@ contract AutomateStablz3CRVIntegration is ChainLinkAutomation {
     ) external onlyOwner {
         require(
             _metaTokenTo3CRVSlippage <= MAX_SLIPPAGE,
-            'AutomateStablz3CRVIntegration: _metaTokenTo3CRVSlippage cannot exceed the maximum slippage'
+            'AutomateNeural3CRVIntegration: _metaTokenTo3CRVSlippage cannot exceed the maximum slippage'
         );
         require(
             _crvTo3CRVSlippage <= MAX_SLIPPAGE,
-            'AutomateStablz3CRVIntegration: _crvTo3CRVSlippage cannot exceed the maximum slippage'
+            'AutomateNeural3CRVIntegration: _crvTo3CRVSlippage cannot exceed the maximum slippage'
         );
         require(
             _feeSwapSlippage <= MAX_SLIPPAGE,
-            'AutomateStablz3CRVIntegration: _feeSwapSlippage cannot exceed the maximum slippage'
+            'AutomateNeural3CRVIntegration: _feeSwapSlippage cannot exceed the maximum slippage'
         );
         metaTokenTo3CRVSlippage = _metaTokenTo3CRVSlippage;
         crvTo3CRVSlippage = _crvTo3CRVSlippage;
@@ -118,7 +118,7 @@ contract AutomateStablz3CRVIntegration is ChainLinkAutomation {
         bytes calldata
     ) internal override returns (bool upkeepNeeded, bytes memory performData) {
         if (integration.oracle() == address(this)) {
-            IStablzFeeHandler feeHandler = IStablzFeeHandler(
+            INeuralFeeHandler feeHandler = INeuralFeeHandler(
                 integration.feeHandler()
             );
             uint[10] memory minHarvestAmounts;

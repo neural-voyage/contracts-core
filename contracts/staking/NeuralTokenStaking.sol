@@ -1,15 +1,15 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity =0.8.9;
 
-import 'contracts/staking/common/StablzStaking.sol';
+import 'contracts/staking/common/NeuralStaking.sol';
 import 'contracts/token/OperatingSystem.sol';
 
-/// @title Stablz staking
-contract StablzTokenStaking is StablzStaking {
+/// @title Neural staking
+contract NeuralTokenStaking is NeuralStaking {
     OperatingSystem public immutable receipt;
 
-    /// @param _stablz Stablz token
-    /// @param _operatingSystem Stablz governance token
+    /// @param _neural Neural token
+    /// @param _operatingSystem Neural governance token
     /// @param _totalRewards Total rewards allocated for the contract
     /// @param _minimumDeposit Minimum deposit amount
     /// @param _apr1Month APR for 1 month to 1 d.p. e.g. 80 = 8%
@@ -17,7 +17,7 @@ contract StablzTokenStaking is StablzStaking {
     /// @param _apr6Month APR for 6 month to 1 d.p. e.g. 200 = 20%
     /// @param _apr12Month APR for 12 month to 1 d.p. e.g. 365 = 36.5%
     constructor(
-        address _stablz,
+        address _neural,
         address _operatingSystem,
         uint _totalRewards,
         uint _minimumDeposit,
@@ -26,9 +26,9 @@ contract StablzTokenStaking is StablzStaking {
         uint _apr6Month,
         uint _apr12Month
     )
-        StablzStaking(
-            _stablz,
-            _stablz,
+        NeuralStaking(
+            _neural,
+            _neural,
             _totalRewards,
             _minimumDeposit,
             _apr1Month,
@@ -39,7 +39,7 @@ contract StablzTokenStaking is StablzStaking {
     {
         require(
             _operatingSystem != address(0),
-            'StablzTokenStaking: _operatingSystem cannot be the zero address'
+            'NeuralTokenStaking: _operatingSystem cannot be the zero address'
         );
         receipt = OperatingSystem(_operatingSystem);
     }

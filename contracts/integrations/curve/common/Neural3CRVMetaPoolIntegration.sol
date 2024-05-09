@@ -5,17 +5,17 @@ pragma solidity =0.8.9;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
-import 'contracts/fees/IStablzFeeHandler.sol';
+import 'contracts/fees/INeuralFeeHandler.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVDepositZap.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVGauge.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVBasePool.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVPool.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVMinter.sol';
 import 'contracts/integrations/curve/common/ICurveSwap.sol';
-import 'contracts/integrations/common/StablzLPIntegration.sol';
+import 'contracts/integrations/common/NeuralLPIntegration.sol';
 
-/// @title Stablz 3CRV - Meta pool integration
-contract Stablz3CRVMetaPoolIntegration is StablzLPIntegration {
+/// @title Neural 3CRV - Meta pool integration
+contract Neural3CRVMetaPoolIntegration is NeuralLPIntegration {
     using SafeERC20 for IERC20;
 
     /// @dev Meta pool specific addresses
@@ -60,14 +60,14 @@ contract Stablz3CRVMetaPoolIntegration is StablzLPIntegration {
         address _gauge,
         address _oracle,
         address _feeHandler
-    ) StablzLPIntegration(_oracle, _feeHandler) {
+    ) NeuralLPIntegration(_oracle, _feeHandler) {
         require(
             _metaPool != address(0),
-            'Stablz3CRVMetaPoolIntegration: _metaPool cannot be the zero address'
+            'Neural3CRVMetaPoolIntegration: _metaPool cannot be the zero address'
         );
         require(
             _gauge != address(0),
-            'Stablz3CRVMetaPoolIntegration: _gauge cannot be the zero address'
+            'Neural3CRVMetaPoolIntegration: _gauge cannot be the zero address'
         );
         CRV_META_POOL = _metaPool;
         CRV_GAUGE = _gauge;
@@ -277,7 +277,7 @@ contract Stablz3CRVMetaPoolIntegration is StablzLPIntegration {
         uint heldRewards = users[_msgSender()].heldRewards;
         require(
             heldRewards > 0,
-            'Stablz3CRVMetaPoolIntegration: No rewards available'
+            'Neural3CRVMetaPoolIntegration: No rewards available'
         );
 
         users[_msgSender()].heldRewards = 0;

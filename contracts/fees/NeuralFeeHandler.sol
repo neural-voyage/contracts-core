@@ -4,17 +4,16 @@ pragma solidity =0.8.9;
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
-import 'contracts/fees/IStablzFeeHandler.sol';
+import 'contracts/fees/INeuralFeeHandler.sol';
 
-import 'contracts/token/Stablz.sol';
+import 'contracts/token/Neural.sol';
 import 'contracts/access/OracleManaged.sol';
 
-/// @title Stablz fee handler
-contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
+/// @title Neural fee handler
+contract NeuralFeeHandler is OracleManaged, ReentrancyGuard, INeuralFeeHandler {
     using SafeERC20 for IERC20;
-    using SafeERC20 for Stablz;
+    using SafeERC20 for Neural;
 
     uint public buyBackFee = 0;
     uint public treasuryFee = 2000;
@@ -25,7 +24,7 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
     address public constant router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public constant usdt = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
-    address public stablz;
+    address public neural;
     address public immutable staking;
     address public immutable treasury;
 
@@ -36,7 +35,7 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
     );
     event FeeUpdated(uint buyBackFee, uint treasuryFee, uint stakingFee);
     event ThresholdUpdated(uint threshold);
-    event StablzAddressAdded(address stablz);
+    event NeuralAddressAdded(address neural);
 
     /// @param _oracle Oracle address
     /// @param _treasury Treasury address
@@ -44,48 +43,48 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
     constructor(address _oracle, address _staking, address _treasury) {
         require(
             _staking != address(0),
-            'StablzFeeHandler: _staking cannot be the zero address'
+            'NeuralFeeHandler: _staking cannot be the zero address'
         );
         require(
             _treasury != address(0),
-            'StablzFeeHandler: _treasury cannot be the zero address'
+            'NeuralFeeHandler: _treasury cannot be the zero address'
         );
         _setOracle(_oracle);
         staking = _staking;
         treasury = _treasury;
     }
 
-    /// @notice Set the Stablz address (can only be set once)
-    /// @param _stablz Stablz address
-    function setStablz(address _stablz) external onlyOwner {
+    /// @notice Set the Neural address (can only be set once)
+    /// @param _neural Neural address
+    function setNeural(address _neural) external onlyOwner {
         require(
-            stablz == address(0),
-            'StablzFeeHandler: Stablz address has already been set'
+            neural == address(0),
+            'NeuralFeeHandler: Neural address has already been set'
         );
         require(
-            _stablz != address(0),
-            'StablzFeeHandler: _stablz cannot be the zero address'
+            _neural != address(0),
+            'NeuralFeeHandler: _neural cannot be the zero address'
         );
-        stablz = _stablz;
-        emit StablzAddressAdded(stablz);
+        neural = _neural;
+        emit NeuralAddressAdded(neural);
     }
 
     /// @notice Process USDT fee
-    /// @param _minStablzAmount Minimum expected Stablz to be received from Uniswap for burning, can be 0 if buy back fee is 0%
+    /// @param _minNeuralAmount Minimum expected Neural to be received from Uniswap for burning, can be 0 if buy back fee is 0%
     function processFee(
-        uint _minStablzAmount
+        uint _minNeuralAmount
     ) external nonReentrant onlyOracle {
         require(
             getFee() > 0,
-            'StablzFeeHandler: Cannot process fee due to total fee percent being 0'
+            'NeuralFeeHandler: Cannot process fee due to total fee percent being 0'
         );
         require(
             isBalanceAboveThreshold(),
-            'StablzFeeHandler: Fee is less than threshold'
+            'NeuralFeeHandler: Fee is less than threshold'
         );
         require(
-            _minStablzAmount > 0 || buyBackFee == 0,
-            'StablzFeeHandler: _minStablzAmount cannot be zero'
+            _minNeuralAmount > 0 || buyBackFee == 0,
+            'NeuralFeeHandler: _minNeuralAmount cannot be zero'
         );
 
         (
@@ -95,7 +94,7 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
         ) = getFeeAmounts();
 
         if (buyBackAmount > 0) {
-            _handleBuyBackFee(buyBackAmount, _minStablzAmount);
+            _handleBuyBackFee(buyBackAmount, _minNeuralAmount);
         }
         if (stakingAmount > 0) {
             _handleStakingFee(stakingAmount);
@@ -146,8 +145,8 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
         return buyBackFee + stakingFee + treasuryFee;
     }
 
-    /// @notice Set the Stablz fee, max combined fee is 2000 (20%)
-    /// @param _buyBackFee Fee for buying back Stablz, 2 d.p.
+    /// @notice Set the Neural fee, max combined fee is 2000 (20%)
+    /// @param _buyBackFee Fee for buying back Neural, 2 d.p.
     /// @param _stakingFee Fee for staking, 2 d.p.
     /// @param _treasuryFee Fee for treasury, 2 d.p.
     function setFee(
@@ -156,12 +155,12 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
         uint _treasuryFee
     ) external onlyOwner {
         require(
-            _buyBackFee == 0 || stablz != address(0),
-            'StablzFeeHandler: Stablz address needs to be configured to set a buyback fee'
+            _buyBackFee == 0 || neural != address(0),
+            'NeuralFeeHandler: Neural address needs to be configured to set a buyback fee'
         );
         require(
             _buyBackFee + _stakingFee + _treasuryFee <= 2000,
-            'StablzFeeHandler: Fee must be less than 20%'
+            'NeuralFeeHandler: Fee must be less than 20%'
         );
         buyBackFee = _buyBackFee;
         stakingFee = _stakingFee;
@@ -177,10 +176,10 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
     }
 
     /// @param _amount Buy back amount in USDT
-    /// @param _minStablzAmount Minimum expected Stablz received from swapping USDT
-    function _handleBuyBackFee(uint _amount, uint _minStablzAmount) internal {
-        _swapUSDTToStablz(_amount, _minStablzAmount);
-        _burnStablz();
+    /// @param _minNeuralAmount Minimum expected Neural received from swapping USDT
+    function _handleBuyBackFee(uint _amount, uint _minNeuralAmount) internal {
+        _swapUSDTToNeural(_amount, _minNeuralAmount);
+        _burnNeural();
     }
 
     /// @param _amount Staking amount in USDT
@@ -193,26 +192,26 @@ contract StablzFeeHandler is OracleManaged, ReentrancyGuard, IStablzFeeHandler {
         IERC20(usdt).safeTransfer(treasury, _amount);
     }
 
-    /// @param _amount USDT to swap to Stablz
-    /// @param _minStablzAmount Minimum expected Stablz received from swapping USDT
-    function _swapUSDTToStablz(uint _amount, uint _minStablzAmount) internal {
+    /// @param _amount USDT to swap to Neural
+    /// @param _minNeuralAmount Minimum expected Neural received from swapping USDT
+    function _swapUSDTToNeural(uint _amount, uint _minNeuralAmount) internal {
         IERC20(usdt).safeIncreaseAllowance(router, _amount);
 
         address[] memory path = new address[](2);
         path[0] = usdt;
-        path[1] = stablz;
+        path[1] = neural;
         IUniswapV2Router02(router).swapExactTokensForTokens(
             _amount,
-            _minStablzAmount,
+            _minNeuralAmount,
             path,
             address(this),
             block.timestamp + 100
         );
     }
 
-    /// @dev Burn Stablz tokens
-    function _burnStablz() internal {
-        uint stablzBalance = Stablz(stablz).balanceOf(address(this));
-        Stablz(stablz).burn(stablzBalance);
+    /// @dev Burn Neural tokens
+    function _burnNeural() internal {
+        uint neuralBalance = Neural(payable(neural)).balanceOf(address(this));
+        Neural(payable(neural)).burn(neuralBalance);
     }
 }

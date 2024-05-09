@@ -6,8 +6,8 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
-/// @title Stablz staking
-abstract contract StablzStaking is Ownable, ReentrancyGuard {
+/// @title Neural staking
+abstract contract NeuralStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public immutable stakingToken;
@@ -38,7 +38,7 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
 
     /// @param _lockUpPeriodType Lock up period type
     modifier onlyValidLockPeriod(uint _lockUpPeriodType) {
-        require(_lockUpPeriodType <= 3, 'StablzStaking: Invalid lock period');
+        require(_lockUpPeriodType <= 3, 'NeuralStaking: Invalid lock period');
         _;
     }
 
@@ -48,13 +48,13 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
         Stake[] memory stakes = _userStakes[_user];
         require(
             _stakeId < stakes.length && stakes[_stakeId].amount != 0,
-            'StablzStaking: Invalid stake ID'
+            'NeuralStaking: Invalid stake ID'
         );
         _;
     }
 
     modifier onlyIfInitialized() {
-        require(initialized, 'StablzStaking: Contract not initialized');
+        require(initialized, 'NeuralStaking: Contract not initialized');
         _;
     }
 
@@ -91,11 +91,11 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
     ) {
         require(
             _stakingToken != address(0),
-            'StablzStaking: _stakingToken cannot be the zero address'
+            'NeuralStaking: _stakingToken cannot be the zero address'
         );
         require(
             _rewardToken != address(0),
-            'StablzStaking: _rewardToken cannot be the zero address'
+            'NeuralStaking: _rewardToken cannot be the zero address'
         );
         stakingToken = _stakingToken;
         rewardToken = _rewardToken;
@@ -109,7 +109,7 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
 
     /// @notice Initialize the contract by funding it with rewards, requires approval prior to calling
     function initialize() external onlyOwner {
-        require(!initialized, 'StablzStaking: Already initialized');
+        require(!initialized, 'NeuralStaking: Already initialized');
         initialized = true;
         totalAvailable = totalRewards;
         uint rewardBalance = IERC20(rewardToken).balanceOf(address(this));
@@ -156,16 +156,16 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
     {
         require(
             isDepositingEnabled,
-            'StablzStaking: Depositing is not allowed at this time'
+            'NeuralStaking: Depositing is not allowed at this time'
         );
         require(
             _amount >= minimumDeposit && _amount > 0,
-            'StablzStaking: Amount is not valid'
+            'NeuralStaking: Amount is not valid'
         );
         uint forecastRewards = _calculateReward(_amount, _lockUpPeriodType);
         require(
             forecastRewards <= totalAvailable,
-            'StablzStaking: Forecast rewards exceeds available rewards'
+            'NeuralStaking: Forecast rewards exceeds available rewards'
         );
         totalAvailable -= forecastRewards;
         uint stakeId = _userStakes[_msgSender()].length;
@@ -199,16 +199,16 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
         uint period = getLockUpPeriod(stake.lockUpPeriodType);
         require(
             block.timestamp >= stake.stakedAt + period,
-            'StablzStaking: You cannot unstake before the lock up period'
+            'NeuralStaking: You cannot unstake before the lock up period'
         );
-        require(_amount > 0, 'StablzStaking: You cannot withdraw zero tokens');
+        require(_amount > 0, 'NeuralStaking: You cannot withdraw zero tokens');
         require(
             stake.amountWithdrawn < stake.amount,
-            'StablzStaking: Already withdrawn full amount'
+            'NeuralStaking: Already withdrawn full amount'
         );
         require(
             _amount <= stake.amount - stake.amountWithdrawn,
-            'StablzStaking: Insufficient stake balance'
+            'NeuralStaking: Insufficient stake balance'
         );
 
         stake.amountWithdrawn += _amount;
@@ -233,7 +233,7 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
         Stake storage stake = _userStakes[_msgSender()][_stakeId];
         require(
             stake.claimedRewards < stake.allocatedRewards,
-            'StablzStaking: You have already claimed your rewards'
+            'NeuralStaking: You have already claimed your rewards'
         );
         uint period = getLockUpPeriod(stake.lockUpPeriodType);
         uint rewards;
@@ -264,15 +264,15 @@ abstract contract StablzStaking is Ownable, ReentrancyGuard {
 
         require(
             _startIndex <= _endIndex,
-            'StablzStaking: Start index must be less than or equal to end index'
+            'NeuralStaking: Start index must be less than or equal to end index'
         );
         require(
             _startIndex < totalUserStakes,
-            'StablzStaking: Invalid start index'
+            'NeuralStaking: Invalid start index'
         );
         require(
             _endIndex < totalUserStakes,
-            'StablzStaking: Invalid end index'
+            'NeuralStaking: Invalid end index'
         );
 
         list = new Stake[](_endIndex - _startIndex + 1);

@@ -2,7 +2,7 @@
 
 pragma solidity =0.8.9;
 
-interface IStablzFeeHandler {
+interface INeuralFeeHandler {
     function usdt() external view returns (address);
 
     function treasury() external view returns (address);

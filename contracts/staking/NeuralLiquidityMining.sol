@@ -3,11 +3,11 @@ pragma solidity =0.8.9;
 
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
-import 'contracts/staking/common/StablzStaking.sol';
+import 'contracts/staking/common/NeuralStaking.sol';
 import 'contracts/access/OracleManaged.sol';
 
-/// @title Stablz liquidity mining
-contract StablzLiquidityMining is StablzStaking, OracleManaged {
+/// @title Neural liquidity mining
+contract NeuralLiquidityMining is NeuralStaking, OracleManaged {
     uint public constant MAXIMUM_LIFETIME_PERIOD = 30 days;
 
     uint public lpPrice;
@@ -17,7 +17,7 @@ contract StablzLiquidityMining is StablzStaking, OracleManaged {
 
     /// @param _oracle Oracle address
     /// @param _lpToken LP token address
-    /// @param _stablz Stablz token
+    /// @param _neural Neural token
     /// @param _totalRewards Total rewards allocated for the contract
     /// @param _minimumDeposit Minimum deposit amount
     /// @param _apr1Month APR for 1 month to 1 d.p. e.g. 80 = 8%
@@ -27,7 +27,7 @@ contract StablzLiquidityMining is StablzStaking, OracleManaged {
     constructor(
         address _oracle,
         address _lpToken,
-        address _stablz,
+        address _neural,
         uint _totalRewards,
         uint _minimumDeposit,
         uint _apr1Month,
@@ -35,9 +35,9 @@ contract StablzLiquidityMining is StablzStaking, OracleManaged {
         uint _apr6Month,
         uint _apr12Month
     )
-        StablzStaking(
+        NeuralStaking(
             _lpToken,
-            _stablz,
+            _neural,
             _totalRewards,
             _minimumDeposit,
             _apr1Month,
@@ -49,14 +49,14 @@ contract StablzLiquidityMining is StablzStaking, OracleManaged {
         _setOracle(_oracle);
         IUniswapV2Pair lpToken = IUniswapV2Pair(_lpToken);
         require(
-            lpToken.token0() == _stablz || lpToken.token1() == _stablz,
-            'StablzLiquidityMining: _lpToken pair does not contain _stablz'
+            lpToken.token0() == _neural || lpToken.token1() == _neural,
+            'NeuralLiquidityMining: _lpToken pair does not contain _neural'
         );
     }
 
-    /// @notice Get value of LP in Stablz based on oracle/owner defined price
+    /// @notice Get value of LP in Neural based on oracle/owner defined price
     /// @param _amount Amount of LP
-    /// @return uint Equivalent value of _amount in Stablz
+    /// @return uint Equivalent value of _amount in Neural
     function getLPValue(uint _amount) external view returns (uint) {
         if (_isLPPriceValid()) {
             return _getLPValue(_amount);
@@ -65,16 +65,16 @@ contract StablzLiquidityMining is StablzStaking, OracleManaged {
     }
 
     /// @notice Set LP price and lifetime for this price
-    /// @param _lpPrice Amount of Stablz for 1 LP token
+    /// @param _lpPrice Amount of Neural for 1 LP token
     /// @param _lifeTimePeriod Lifetime period for _lpPrice, in seconds. Cannot be greater than the maximum lifetime period
     function setLPValue(
         uint _lpPrice,
         uint _lifeTimePeriod
     ) external onlyOwnerOrOracle {
-        require(_lpPrice > 0, 'StablzLiquidityMining: _lpPrice cannot be zero');
+        require(_lpPrice > 0, 'NeuralLiquidityMining: _lpPrice cannot be zero');
         require(
             _lifeTimePeriod <= MAXIMUM_LIFETIME_PERIOD,
-            'StablzLiquidityMining: _lifeTimePeriod is greater than the maximum lifetime period'
+            'NeuralLiquidityMining: _lifeTimePeriod is greater than the maximum lifetime period'
         );
         lpPrice = _lpPrice;
         lpPriceExpiresAt = block.timestamp + _lifeTimePeriod;
@@ -86,18 +86,18 @@ contract StablzLiquidityMining is StablzStaking, OracleManaged {
         uint _amount,
         uint _lockUpPeriodType
     ) internal view override returns (uint reward) {
-        /// @dev convert LP amount to Stablz
+        /// @dev convert LP amount to Neural
         require(
             _isLPPriceValid(),
-            'StablzLiquidityMining: LP price has expired'
+            'NeuralLiquidityMining: LP price has expired'
         );
-        uint stablzAmount = _getLPValue(_amount);
+        uint neuralAmount = _getLPValue(_amount);
         uint period = getLockUpPeriod(_lockUpPeriodType);
         uint apr = getAPR(_lockUpPeriodType);
-        return (stablzAmount * apr * period) / (365 days * APR_DENOMINATOR);
+        return (neuralAmount * apr * period) / (365 days * APR_DENOMINATOR);
     }
 
-    /// @dev get LP amount in Stablz
+    /// @dev get LP amount in Neural
     function _getLPValue(uint _amount) internal view returns (uint) {
         return (_amount * lpPrice) / 1 ether;
     }

@@ -6,11 +6,11 @@ import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
-/// @title Stablz vesting contract
-contract StablzVesting is Ownable, ReentrancyGuard {
+/// @title Neural vesting contract
+contract NeuralVesting is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public stablz;
+    IERC20 public neural;
 
     uint private constant TGE_PERCENT_DENOMINATOR = 100;
 
@@ -44,11 +44,11 @@ contract StablzVesting is Ownable, ReentrancyGuard {
         uint numberOfVestments = _users[_user].numberOfVestments;
         require(
             numberOfVestments > 0,
-            'StablzVesting: No vestments found for user'
+            'NeuralVesting: No vestments found for user'
         );
         require(
             _vestmentId < numberOfVestments,
-            'StablzVesting: Invalid vestment ID'
+            'NeuralVesting: Invalid vestment ID'
         );
         _;
     }
@@ -66,15 +66,15 @@ contract StablzVesting is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(
             !_hasVestingStarted(),
-            'StablzVesting: Cannot import data after vesting has started'
+            'NeuralVesting: Cannot import data after vesting has started'
         );
         require(
             _addresses.length == _amounts.length,
-            'StablzVesting: _addresses and _amounts list lengths do not match'
+            'NeuralVesting: _addresses and _amounts list lengths do not match'
         );
         require(
             _tgePercent < TGE_PERCENT_DENOMINATOR,
-            'StablzVesting: _tgePercent must be less than 100'
+            'NeuralVesting: _tgePercent must be less than 100'
         );
         uint total;
         for (uint i; i < _addresses.length; i++) {
@@ -101,30 +101,30 @@ contract StablzVesting is Ownable, ReentrancyGuard {
     }
 
     /// @notice Start vesting period
-    /// @param _stablz Stablz token address
-    function startVestingPeriod(IERC20 _stablz) external onlyOwner {
+    /// @param _neural Neural token address
+    function startVestingPeriod(IERC20 _neural) external onlyOwner {
         require(
-            address(_stablz) != address(0),
-            'StablzVesting: _stablz cannot be the zero address'
+            address(_neural) != address(0),
+            'NeuralVesting: _neural cannot be the zero address'
         );
         require(
             !_hasVestingStarted(),
-            'StablzVesting: Vesting period has already started'
+            'NeuralVesting: Vesting period has already started'
         );
-        require(totalAmount > 0, 'StablzVesting: No data has been configured');
-        stablz = _stablz;
+        require(totalAmount > 0, 'NeuralVesting: No data has been configured');
+        neural = _neural;
         vestingStartedAt = block.timestamp;
-        stablz.safeTransferFrom(_msgSender(), address(this), totalAmount);
+        neural.safeTransferFrom(_msgSender(), address(this), totalAmount);
         emit VestingPeriodStarted();
     }
 
-    /// @notice Withdraw Stablz tokens
+    /// @notice Withdraw Neural tokens
     function withdraw(
         uint _vestmentId
     ) external nonReentrant onlyValidVestmentId(_msgSender(), _vestmentId) {
         require(
             _hasVestingStarted(),
-            'StablzVesting: Unlock period has not started'
+            'NeuralVesting: Unlock period has not started'
         );
         User storage user = _users[_msgSender()];
         Vestment storage vestment = user.vestments[_vestmentId];
@@ -133,7 +133,7 @@ contract StablzVesting is Ownable, ReentrancyGuard {
         bool unclaimedVestment = vestment.withdrawn < vestment.amount;
         require(
             unclaimedTGE || unclaimedVestment,
-            'StablzVesting: You have already withdrawn the total amount'
+            'NeuralVesting: You have already withdrawn the total amount'
         );
         uint amount;
         if (unclaimedTGE) {
@@ -144,7 +144,7 @@ contract StablzVesting is Ownable, ReentrancyGuard {
         vestment.withdrawn += available;
         amount += available;
         totalWithdrawn += amount;
-        stablz.safeTransfer(_msgSender(), amount);
+        neural.safeTransfer(_msgSender(), amount);
         emit Withdrawn(_msgSender(), amount);
     }
 

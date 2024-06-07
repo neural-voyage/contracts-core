@@ -18,13 +18,14 @@ contract Neural is Ownable, ERC20Burnable, ERC20Pausable {
     using SafeERC20 for IERC20;
 
     /// @dev initial supply
-    uint256 private constant INITIAL_SUPPLY = 10000000 ether;
+    uint256 private constant INITIAL_SUPPLY = 100000000 ether; // 100 M
 
     /// @notice percent multiplier (100%)
     uint256 public constant MULTIPLIER = 10000;
 
     /// @notice Uniswap Router
-    IUniswapV2Router02 public immutable ROUTER;
+    IUniswapV2Router02 public constant ROUTER =
+        IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     /// @notice tax info
     struct TaxInfo {
@@ -79,12 +80,9 @@ contract Neural is Ownable, ERC20Burnable, ERC20Pausable {
     error PAUSED();
     error MAX_BALANCE();
     error BLACKLISTED();
+    error FAIL_TO_SEND_ETH();
 
-    constructor(
-        IUniswapV2Router02 router
-    ) Ownable() ERC20('Neural', 'NEURAL') {
-        ROUTER = router;
-
+    constructor() Ownable() ERC20('Neural', 'NEURAL') {
         taxInfo.liquidityFee = 300; // 3%
         taxInfo.marketingFee = 300; // 3%
         uniswapFee = 3; // 0.3% (1000 = 100%)
@@ -357,7 +355,12 @@ contract Neural is Ownable, ERC20Burnable, ERC20Pausable {
         );
 
         uint256 marketingETH = address(this).balance - balanceBefore;
-        payable(marketingFeeReceiver).call{value: marketingETH}('');
+        (bool sent, ) = payable(marketingFeeReceiver).call{value: marketingETH}(
+            ''
+        );
+        if (!sent) {
+            revert FAIL_TO_SEND_ETH();
+        }
     }
 
     function _calculateSwapInAmount(

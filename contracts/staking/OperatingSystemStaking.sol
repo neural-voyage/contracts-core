@@ -10,13 +10,11 @@ import 'contracts/access/OracleManaged.sol';
 contract OperatingSystemStaking is OracleManaged {
     using SafeERC20 for IERC20;
 
+    address private constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+
     IERC20 public immutable operatingSystem;
     IERC20 public immutable usdt;
-    address private constant STAKING_FUND =
-        0x0a5a1209E93E03a9C341287bf4179944f23C9E5D;
-    address private constant OPERATING_SYSTEM =
-        0x21FfE03cAA6355CF1ca47B898921d2f70e85e423;
-    address private constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address private immutable stakingFund;
     // @dev this is used to allow for decimals in the currentRewardValue as well as to convert USDT amount to 18 decimals
     uint private constant REWARD_FACTOR_ACCURACY = 1_000_000_000_000 ether;
     uint private constant BASE_DISTRIBUTION_AMOUNT = 10 ** 6;
@@ -46,9 +44,14 @@ contract OperatingSystemStaking is OracleManaged {
     event Distributed(uint rewards, uint totalStaked);
 
     /// @param _oracle Oracle address
-    constructor(address _oracle) {
+    constructor(
+        address _oracle,
+        address _operatingSystem,
+        address _stakingFund
+    ) {
         _setOracle(_oracle);
-        operatingSystem = IERC20(OPERATING_SYSTEM);
+        operatingSystem = IERC20(_operatingSystem);
+        stakingFund = _stakingFund;
         usdt = IERC20(USDT);
     }
 
@@ -144,19 +147,19 @@ contract OperatingSystemStaking is OracleManaged {
             totalStaked >= MINIMUM_STAKE,
             'OperatingSystemStaking: Total staked must be greater than 1 OS'
         );
-        uint amount = usdt.balanceOf(STAKING_FUND);
+        uint amount = usdt.balanceOf(stakingFund);
         require(
             amount >= minimumDistribution,
             'OperatingSystemStaking: Insufficient amount'
         );
         require(
-            usdt.allowance(STAKING_FUND, address(this)) >= amount,
+            usdt.allowance(stakingFund, address(this)) >= amount,
             'OperatingSystemStaking: Insufficient allowance'
         );
         allTimeStakedAtDistribution += totalStaked;
         allTimeRewards += amount;
         currentRewardFactor += (REWARD_FACTOR_ACCURACY * amount) / totalStaked;
-        usdt.safeTransferFrom(STAKING_FUND, address(this), amount);
+        usdt.safeTransferFrom(stakingFund, address(this), amount);
         emit Distributed(amount, totalStaked);
     }
 

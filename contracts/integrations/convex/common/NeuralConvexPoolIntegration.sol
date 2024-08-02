@@ -268,10 +268,7 @@ contract NeuralConvexPoolIntegration is NeuralLPIntegration {
     }
 
     /// @dev query underlying tokens of the LP
-    function _queryUnderlyings()
-        internal
-        virtual
-    {}
+    function _queryUnderlyings() internal virtual {}
 
     /// @dev deposit stablecoin to Curve LP
     function _depositStablecoin(

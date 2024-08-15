@@ -21,6 +21,7 @@ contract NeuralFeeHandler is OracleManaged, ReentrancyGuard, INeuralFeeHandler {
     uint public threshold = 100000000;
     uint constant DENOMINATOR = 10000;
 
+    // Uniswap V2 Router
     address public constant router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public constant usdt = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 

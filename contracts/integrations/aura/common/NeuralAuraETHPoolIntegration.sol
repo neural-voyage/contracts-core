@@ -5,16 +5,17 @@ pragma solidity =0.8.9;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
+import 'contracts/interfaces/IWETH.sol';
 import 'contracts/interfaces/IUniswapV3Router.sol';
 import 'contracts/fees/INeuralFeeHandler.sol';
-import 'contracts/integrations/common/NeuralLPIntegration.sol';
+import 'contracts/integrations/common/NeuralETHLPIntegration.sol';
 import 'contracts/integrations/aura/common/IAuraBooster.sol';
 import 'contracts/integrations/aura/common/IAuraRewards.sol';
 import 'contracts/integrations/aura/common/IBalancerPool.sol';
 import 'contracts/integrations/aura/common/IBalancerVault.sol';
 
 /// @title Neural Aura stablecoin pool integration
-contract NeuralAuraPoolIntegration is NeuralLPIntegration {
+contract NeuralAuraETHPoolIntegration is NeuralETHLPIntegration {
     using SafeERC20 for IERC20;
 
     /// @dev Aura contracts
@@ -35,9 +36,9 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
 
     uint256[3] public emergencyWithdrawnTokens;
 
-    /// @dev Stablecoin for the reward
-    address internal constant USDT_TOKEN =
-        0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    /// @dev WETH for the reward
+    address internal constant WETH_TOKEN =
+        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @dev Aura reward tokens
     address internal constant BAL_TOKEN =
@@ -48,8 +49,6 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
     /// @dev Swap configurations
     address internal constant UNISWAP_V3_ROUTER =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    address internal constant WETH_TOKEN =
-        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @param _pid Aura Pool ID
     /// @param _oracle Oracle address
@@ -58,7 +57,7 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
         uint256 _pid,
         address _oracle,
         address _feeHandler
-    ) NeuralLPIntegration(_oracle, _feeHandler) {
+    ) NeuralETHLPIntegration(_oracle, _feeHandler) {
         AURA_PID = _pid;
         (AURA_LP_TOKEN, , , AURA_REWARDS, , ) = IAuraBooster(BOOSTER).poolInfo(
             _pid
@@ -95,25 +94,25 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
     /// @param _token Token address
     /// @return bool true if it is a supported reward token, false if not
     function isRewardToken(address _token) public pure override returns (bool) {
-        return _token == USDT_TOKEN;
+        return _token == WETH_TOKEN;
     }
 
-    /// @dev Deposit stablecoins
-    /// @param _stablecoin stablecoin to deposit
+    /// @dev Deposit ETH
     /// @param _amount amount to deposit
     /// @param _minLPAmount minimum amount of LP to receive
     /// @return lpTokens Amount of LP tokens received from depositing
     function _farmDeposit(
-        address _stablecoin,
         uint _amount,
         uint _minLPAmount
     ) internal override returns (uint lpTokens) {
         // stablecoin -> LP
-        IERC20(_stablecoin).safeIncreaseAllowance(VAULT, _amount);
+        IWETH(WETH_TOKEN).deposit{value: _amount}();
+        IERC20(WETH_TOKEN).safeIncreaseAllowance(VAULT, _amount);
+
         IBalancerVault.JoinPoolRequest memory request;
         request.assets = _underlyingTokens;
         request.maxAmountsIn = new uint256[](request.assets.length);
-        request.maxAmountsIn[_underlyingTokenIndex[_stablecoin] - 1] = _amount;
+        request.maxAmountsIn[_underlyingTokenIndex[WETH_TOKEN] - 1] = _amount;
         request.userData = abi.encode(1, request.maxAmountsIn, _minLPAmount); // EXACT_TOKENS_IN_FOR_BPT_OUT
         IBalancerVault(VAULT).joinPool(
             BALANCER_POOL_ID,
@@ -128,31 +127,29 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
         IAuraBooster(BOOSTER).deposit(AURA_PID, lpTokens, true);
     }
 
-    /// @dev Withdraw stablecoins
-    /// @param _stablecoin chosen stablecoin to withdraw
+    /// @dev Withdraw ETH
     /// @param _lpTokens LP amount to remove
-    /// @param _minAmount minimum amount of _stablecoin to receive
-    /// @return received Amount of _stablecoin received from withdrawing _lpToken
+    /// @param _minAmount minimum amount of ETH to receive
+    /// @return received Amount of ETH received from withdrawing _lpToken
     function _farmWithdrawal(
-        address _stablecoin,
         uint _lpTokens,
         uint _minAmount
     ) internal override returns (uint received) {
         // unstake and withdraw
         IAuraRewards(AURA_REWARDS).withdrawAndUnwrap(_lpTokens, false);
 
-        uint256 balanceBefore = IERC20(_stablecoin).balanceOf(address(this));
-        // LP -> stablecoin
+        uint256 balanceBefore = IERC20(WETH_TOKEN).balanceOf(address(this));
+        // LP -> WETH
         IBalancerVault.ExitPoolRequest memory request;
         request.assets = _underlyingTokens;
         request.minAmountsOut = new uint256[](request.assets.length);
         request.minAmountsOut[
-            _underlyingTokenIndex[_stablecoin] - 1
+            _underlyingTokenIndex[WETH_TOKEN] - 1
         ] = _minAmount;
         request.userData = abi.encode(
             0,
             _lpTokens,
-            _underlyingTokenIndex[_stablecoin] - 1
+            _underlyingTokenIndex[WETH_TOKEN] - 1
         ); // EXACT_BPT_IN_FOR_ONE_TOKEN_OUT
         IBalancerVault(VAULT).exitPool(
             BALANCER_POOL_ID,
@@ -161,12 +158,13 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
             request
         );
 
-        received = IERC20(_stablecoin).balanceOf(address(this)) - balanceBefore;
+        received = IERC20(WETH_TOKEN).balanceOf(address(this)) - balanceBefore;
+        IWETH(WETH_TOKEN).withdraw(received);
     }
 
-    /// @dev Claim Curve rewards and convert them to USDT
-    /// @param _minAmounts Minimum swap amounts for harvesting, index 0: BAL / AURA -> USDT, index 1: Extra rewards -> USDT
-    /// @return rewards Amount of USDT rewards harvested
+    /// @dev Claim Aura rewards and convert them to WETH
+    /// @param _minAmounts Minimum swap amounts for harvesting, index 0: BAL / AURA -> WETH, index 1: Extra rewards -> WETH
+    /// @return rewards Amount of WETH rewards harvested
     function _farmHarvest(
         uint[10] memory _minAmounts
     ) internal override returns (uint rewards) {
@@ -178,8 +176,7 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
         // AURA -> WETH
         _swapAURAToWETH();
 
-        // WETH -> USDT
-        rewards = _swapWETHToUSDT(_minAmounts[0]);
+        rewards = IERC20(WETH_TOKEN).balanceOf(address(this));
 
         rewards += _swapExtraRewards(_minAmounts[1]);
 
@@ -219,10 +216,10 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
     ) internal override returns (uint rewards) {
         require(
             isRewardToken(_stablecoin),
-            'NeuralAuraPoolIntegration: Only USDT'
+            'NeuralAuraPoolIntegration: Only WETH'
         );
         _mergeRewards();
-        uint heldRewards = users[_msgSender()].heldRewards; // USDT
+        uint heldRewards = users[_msgSender()].heldRewards; // WETH
         require(
             heldRewards > _minAmount,
             'NeuralAuraPoolIntegration: Not enough rewards'
@@ -234,8 +231,8 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
         return rewards;
     }
 
-    /// @dev transfer USDT to fee handler contract
-    /// @param _minAmount minimum amount of USDT to receive
+    /// @dev transfer WETH to fee handler contract
+    /// @param _minAmount minimum amount of WETH to receive
     function _handleFee(uint _minAmount) internal override {
         uint fee = totalUnhandledFee;
         require(
@@ -244,7 +241,7 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
         );
         totalUnhandledFee = 0;
 
-        IERC20(USDT_TOKEN).safeTransfer(feeHandler, fee);
+        IERC20(WETH_TOKEN).safeTransfer(feeHandler, fee);
     }
 
     /// @dev swap BAL to WETH
@@ -283,28 +280,6 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
         IBalancerVault(VAULT).swap(singleSwap, funds, 0, block.timestamp);
     }
 
-    /// @dev swap WETH to USDT (reward)
-    function _swapWETHToUSDT(
-        uint256 _minAmount
-    ) internal returns (uint256 reward) {
-        uint256 swapAmount = IERC20(WETH_TOKEN).balanceOf(address(this));
-        IERC20(WETH_TOKEN).safeIncreaseAllowance(UNISWAP_V3_ROUTER, swapAmount);
-
-        IUniswapV3Router.ExactInputSingleParams memory params;
-        params.tokenIn = WETH_TOKEN;
-        params.tokenOut = USDT_TOKEN;
-        params.fee = 3000;
-        params.recipient = address(this);
-        params.deadline = block.timestamp;
-        params.amountIn = swapAmount;
-        params.amountOutMinimum = _minAmount;
-        params.sqrtPriceLimitX96 = 0;
-
-        uint256 balanceBefore = IERC20(USDT_TOKEN).balanceOf(address(this));
-        IUniswapV3Router(UNISWAP_V3_ROUTER).exactInputSingle(params);
-        reward = IERC20(USDT_TOKEN).balanceOf(address(this)) - balanceBefore;
-    }
-
     /// @dev exit LP and prepare emergency withdrawn tokens
     function _exitPoolForEmergencyWithdraw(
         uint256 _lpTokens,
@@ -340,7 +315,7 @@ contract NeuralAuraPoolIntegration is NeuralLPIntegration {
         }
     }
 
-    /// @dev swap extra rewards to USDT (reward)
+    /// @dev swap extra rewards to WETH (reward)
     function _swapExtraRewards(
         uint256 _minAmount
     ) internal virtual returns (uint256) {}

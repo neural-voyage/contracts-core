@@ -43,8 +43,6 @@ contract NeuralAerodromePoolIntegration is NeuralLPIntegration {
     address internal constant USDC_TOKEN =
         0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
-    receive() external payable {}
-
     /// @param _oracle Oracle address
     /// @param _feeHandler Fee handler address
     constructor(
@@ -223,14 +221,13 @@ contract NeuralAerodromePoolIntegration is NeuralLPIntegration {
         routes[0].factory = IVeloPool(AERODROME_LP_TOKEN).factory();
 
         // Swap `tokenIn` into `tokenOut`.
-        IVeloRouter(AERODROME_ROUTER)
-            .swapExactTokensForTokens(
-                swapAmount,
-                0,
-                routes,
-                address(this),
-                block.timestamp
-            );
+        IVeloRouter(AERODROME_ROUTER).swapExactTokensForTokens(
+            swapAmount,
+            0,
+            routes,
+            address(this),
+            block.timestamp
+        );
     }
 
     /// @dev swap USDC to USDT (reward)

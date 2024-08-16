@@ -75,19 +75,18 @@ contract NeuralWethRethAerodromeIntegration is
 
     /// @dev deposit stablecoin to Curve LP
     function _depositStablecoin(
-        address _stablecoin,
         uint256 _amount,
         uint256 _minLPAmount
     ) internal override {
-        IERC20(_stablecoin).safeIncreaseAllowance(AERODROME_ROUTER, _amount);
+        IERC20(WETH_TOKEN).safeIncreaseAllowance(AERODROME_ROUTER, _amount);
 
         (uint256 r0, uint256 r1, ) = IVeloPair(AERODROME_LP_TOKEN)
             .getReserves();
-        (uint256 reserveA, uint256 reserveB) = _stablecoin ==
+        (uint256 reserveA, uint256 reserveB) = WETH_TOKEN ==
             _underlyingTokens[0]
             ? (r0, r1)
             : (r1, r0);
-        (address tokenA, address tokenB) = _stablecoin == _underlyingTokens[0]
+        (address tokenA, address tokenB) = WETH_TOKEN == _underlyingTokens[0]
             ? (_underlyingTokens[0], _underlyingTokens[1])
             : (_underlyingTokens[1], _underlyingTokens[0]);
 
@@ -118,7 +117,7 @@ contract NeuralWethRethAerodromeIntegration is
         routesB[0].stable = true;
 
         IVeloRouter(AERODROME_ROUTER).zapIn(
-            _stablecoin,
+            WETH_TOKEN,
             _amount - swapAmount,
             swapAmount,
             zapInPool,
@@ -136,7 +135,6 @@ contract NeuralWethRethAerodromeIntegration is
 
     /// @dev withdraw stablecoin from Aerodrome
     function _withdrawStablecoin(
-        address _stablecoin,
         uint256 _lpTokens,
         uint256 _minAmount
     ) internal override {
@@ -151,7 +149,7 @@ contract NeuralWethRethAerodromeIntegration is
             block.timestamp
         );
 
-        (address tokenA, address tokenB) = _stablecoin == _underlyingTokens[0]
+        (address tokenA, address tokenB) = WETH_TOKEN == _underlyingTokens[0]
             ? (_underlyingTokens[0], _underlyingTokens[1])
             : (_underlyingTokens[1], _underlyingTokens[0]);
 
@@ -173,8 +171,8 @@ contract NeuralWethRethAerodromeIntegration is
             block.timestamp
         );
         require(
-            IERC20(_stablecoin).balanceOf(address(this)) >= _minAmount,
-            'NeuralDolaUsdcAerodromeIntegration: Not enough result'
+            IERC20(WETH_TOKEN).balanceOf(address(this)) >= _minAmount,
+            'NeuralWethRethAerodromeIntegration: Not enough result'
         );
     }
 

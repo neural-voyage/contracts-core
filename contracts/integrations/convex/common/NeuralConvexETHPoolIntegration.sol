@@ -9,24 +9,22 @@ import 'contracts/interfaces/IWETH.sol';
 import 'contracts/interfaces/IUniswapV3Router.sol';
 import 'contracts/fees/INeuralFeeHandler.sol';
 import 'contracts/integrations/common/NeuralETHLPIntegration.sol';
-import 'contracts/integrations/aerodrome/common/IVeloPool.sol';
-import 'contracts/integrations/aerodrome/common/IVeloGauge.sol';
-import 'contracts/integrations/aerodrome/common/IVeloRouter.sol';
+import 'contracts/integrations/convex/common/IConvexBooster.sol';
+import 'contracts/integrations/convex/common/IConvexRewards.sol';
 import 'contracts/integrations/curve/common/ICurve3CRVBasePool.sol';
 
-/// @title Neural Aerodrome stablecoin pool integration
-contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
+/// @title Neural Convex stablecoin pool integration
+contract NeuralConvexETHPoolIntegration is NeuralETHLPIntegration {
     using SafeERC20 for IERC20;
 
-    /// @dev Aerodrome contracts
-    address internal constant AERODROME_ROUTER =
-        0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43;
-    address internal constant AERODROME_FACTORY =
-        0x420DD381b31aEf6683db6B902084cB0FFECe40Da;
+    /// @dev Convex contracts
+    address internal constant BOOSTER =
+        0xF403C135812408BFbE8713b5A23a04b3D48AAE31;
 
     /// @dev LP configurations
-    address internal AERODROME_LP_TOKEN; // Aerodrome LP token address
-    address internal AERODROME_GAUGE; // Rewards (Curve / Aerodrome) distribution contract
+    uint256 internal CONVEX_PID; // Convex Pool ID
+    address internal CONVEX_LP_TOKEN; // Convex LP token address
+    address internal CONVEX_REWARDS; // Rewards (Curve / Convex) distribution contract
     address[] internal _underlyingTokens;
     mapping(address => uint256) internal _underlyingTokenIndex; // starts from `1`
 
@@ -34,33 +32,31 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
 
     /// @dev Stablecoin for the reward
     address internal constant WETH_TOKEN =
-        0x4200000000000000000000000000000000000006;
+        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
-    /// @dev Aerodrome reward tokens
-    address internal constant AERO_TOKEN =
-        0x940181a94A35A4569E4529A3CDfB74e38FD98631;
+    /// @dev Convex reward tokens
+    address internal constant CRV_TOKEN =
+        0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address internal constant CVX_TOKEN =
+        0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B;
 
     /// @dev Swap configurations
-    address internal constant USDC_TOKEN =
-        0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address internal constant UNISWAP_V3_ROUTER =
+        0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
+    /// @param _pid Convex Pool ID
     /// @param _oracle Oracle address
     /// @param _feeHandler Fee handler address
     constructor(
-        address _lpToken,
-        address _gauge,
+        uint256 _pid,
         address _oracle,
         address _feeHandler
     ) NeuralETHLPIntegration(_oracle, _feeHandler) {
-        AERODROME_LP_TOKEN = _lpToken;
-        AERODROME_GAUGE = _gauge;
+        CONVEX_PID = _pid;
+        (CONVEX_LP_TOKEN, , , CONVEX_REWARDS, , ) = IConvexBooster(BOOSTER)
+            .poolInfo(_pid);
 
-        address token0 = IVeloPool(_lpToken).token0();
-        _underlyingTokenIndex[token0] = 1;
-        _underlyingTokens.push(token0);
-        address token1 = IVeloPool(_lpToken).token1();
-        _underlyingTokenIndex[token1] = 2;
-        _underlyingTokens.push(token1);
+        _queryUnderlyings();
     }
 
     /// @notice Check if an address is an accepted deposit token
@@ -102,12 +98,9 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
         _depositStablecoin(_amount, _minLPAmount);
 
         // deposit and stake
-        lpTokens = IERC20(AERODROME_LP_TOKEN).balanceOf(address(this));
-        IERC20(AERODROME_LP_TOKEN).safeIncreaseAllowance(
-            AERODROME_GAUGE,
-            lpTokens
-        );
-        IVeloGauge(AERODROME_GAUGE).deposit(lpTokens);
+        lpTokens = IERC20(CONVEX_LP_TOKEN).balanceOf(address(this));
+        IERC20(CONVEX_LP_TOKEN).safeIncreaseAllowance(BOOSTER, lpTokens);
+        IConvexBooster(BOOSTER).deposit(CONVEX_PID, lpTokens, true);
     }
 
     /// @dev Withdraw stablecoins
@@ -119,7 +112,7 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
         uint256 _minAmount
     ) internal override returns (uint received) {
         // unstake and withdraw
-        IVeloGauge(AERODROME_GAUGE).withdraw(_lpTokens);
+        IConvexRewards(CONVEX_REWARDS).withdrawAndUnwrap(_lpTokens, false);
 
         uint256 balanceBefore = IERC20(WETH_TOKEN).balanceOf(address(this));
         // LP -> stablecoin
@@ -135,13 +128,16 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
     function _farmHarvest(
         uint[10] memory _minAmounts
     ) internal override returns (uint rewards) {
-        IVeloGauge(AERODROME_GAUGE).getReward(address(this));
+        IConvexRewards(CONVEX_REWARDS).getReward(address(this), true);
+        uint256 balanceBefore = IERC20(WETH_TOKEN).balanceOf(address(this));
+        // CRV -> USDC
+        _swapCRVToWETH();
 
-        // AERO -> USDC
-        _swapAEROToUSDC();
+        // CVX -> USDC
+        _swapCVXToWETH();
 
         // USDC -> USDT
-        rewards = _swapUSDCToWETH(_minAmounts[0]);
+        rewards = IERC20(WETH_TOKEN).balanceOf(address(this)) - balanceBefore;
 
         rewards += _swapExtraRewards(_minAmounts[1]);
 
@@ -149,14 +145,14 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
     }
 
     /// @dev Withdraw all LP in base tokens
-    /// @param _lpTokens Amount of Aerodrome LP tokens
+    /// @param _lpTokens Amount of Convex LP tokens
     /// @param _minAmounts Minimum amounts for withdrawal (underlying tokens)
     function _farmEmergencyWithdrawal(
         uint _lpTokens,
         uint[10] memory _minAmounts
     ) internal override {
         // unstake and withdraw
-        IVeloGauge(AERODROME_GAUGE).withdraw(_lpTokens);
+        IConvexRewards(CONVEX_REWARDS).withdrawAndUnwrap(_lpTokens, false);
 
         // exit LP
         _exitPoolForEmergencyWithdraw(_lpTokens, _minAmounts);
@@ -165,7 +161,7 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
     /// @dev Transfer pro rata amount of stablecoins to user
     function _withdrawAfterShutdown() internal override {
         _mergeRewards();
-        for (uint i; i < 2; i++) {
+        for (uint i; i < 3; i++) {
             uint amount = (emergencyWithdrawnTokens[i] *
                 users[_msgSender()].lpBalance) / totalActiveDeposits;
             IERC20(_underlyingTokens[i]).safeTransfer(_msgSender(), amount);
@@ -181,13 +177,13 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
     ) internal override returns (uint rewards) {
         require(
             isRewardToken(_stablecoin),
-            'NeuralAerodromePoolIntegration: Only USDT'
+            'NeuralConvexPoolIntegration: Only USDT'
         );
         _mergeRewards();
         uint heldRewards = users[_msgSender()].heldRewards; // USDT
         require(
             heldRewards > _minAmount,
-            'NeuralAerodromePoolIntegration: Not enough rewards'
+            'NeuralConvexPoolIntegration: Not enough rewards'
         );
 
         users[_msgSender()].heldRewards = 0;
@@ -202,59 +198,47 @@ contract NeuralAerodromeETHPoolIntegration is NeuralETHLPIntegration {
         uint fee = totalUnhandledFee;
         require(
             fee >= _minAmount,
-            'NeuralAerodromePoolIntegration: Not enough fees'
+            'NeuralConvexPoolIntegration: Not enough fees'
         );
         totalUnhandledFee = 0;
 
         IERC20(WETH_TOKEN).safeTransfer(feeHandler, fee);
     }
 
-    /// @dev swap AERO to USDC
-    function _swapAEROToUSDC() internal {
-        uint256 swapAmount = IERC20(AERO_TOKEN).balanceOf(address(this));
-        IERC20(AERO_TOKEN).safeIncreaseAllowance(AERODROME_ROUTER, swapAmount);
+    /// @dev swap CRV to WETH
+    function _swapCRVToWETH() internal {
+        uint256 swapAmount = IERC20(CRV_TOKEN).balanceOf(address(this));
+        IERC20(CRV_TOKEN).safeIncreaseAllowance(UNISWAP_V3_ROUTER, swapAmount);
 
-        IVeloRouter.Route[] memory routes = new IVeloRouter.Route[](1);
-        routes[0].from = AERO_TOKEN;
-        routes[0].to = USDC_TOKEN;
-        routes[0].stable = true;
-        routes[0].factory = IVeloPool(AERODROME_LP_TOKEN).factory();
+        IUniswapV3Router.ExactInputSingleParams memory params;
+        params.tokenIn = CRV_TOKEN;
+        params.tokenOut = WETH_TOKEN;
+        params.fee = 10000;
+        params.recipient = address(this);
+        params.deadline = block.timestamp;
+        params.amountIn = swapAmount;
+        params.amountOutMinimum = 1;
+        params.sqrtPriceLimitX96 = 0;
 
-        // Swap `tokenIn` into `tokenOut`.
-        IVeloRouter(AERODROME_ROUTER).swapExactTokensForTokens(
-            swapAmount,
-            0,
-            routes,
-            address(this),
-            block.timestamp
-        );
+        IUniswapV3Router(UNISWAP_V3_ROUTER).exactInputSingle(params);
     }
 
-    /// @dev swap USDC to USDT (reward)
-    function _swapUSDCToWETH(
-        uint256 _minAmount
-    ) internal returns (uint256 reward) {
-        uint256 swapAmount = IERC20(USDC_TOKEN).balanceOf(address(this));
-        IERC20(USDC_TOKEN).safeIncreaseAllowance(AERODROME_ROUTER, swapAmount);
+    /// @dev swap CONVEX to WETH
+    function _swapCVXToWETH() internal {
+        uint256 swapAmount = IERC20(CVX_TOKEN).balanceOf(address(this));
+        IERC20(CVX_TOKEN).safeIncreaseAllowance(UNISWAP_V3_ROUTER, swapAmount);
 
-        IVeloRouter.Route[] memory routes = new IVeloRouter.Route[](1);
-        routes[0].from = USDC_TOKEN;
-        routes[0].to = WETH_TOKEN;
-        routes[0].stable = true;
-        routes[0].factory = IVeloPool(AERODROME_LP_TOKEN).factory();
+        IUniswapV3Router.ExactInputSingleParams memory params;
+        params.tokenIn = CVX_TOKEN;
+        params.tokenOut = WETH_TOKEN;
+        params.fee = 3000;
+        params.recipient = address(this);
+        params.deadline = block.timestamp;
+        params.amountIn = swapAmount;
+        params.amountOutMinimum = 1;
+        params.sqrtPriceLimitX96 = 0;
 
-        uint256 balanceBefore = IERC20(WETH_TOKEN).balanceOf(address(this));
-
-        // Swap `tokenIn` into `tokenOut`.
-        IVeloRouter(AERODROME_ROUTER).swapExactTokensForTokens(
-            swapAmount,
-            _minAmount,
-            routes,
-            address(this),
-            block.timestamp
-        );
-
-        reward = IERC20(WETH_TOKEN).balanceOf(address(this)) - balanceBefore;
+        IUniswapV3Router(UNISWAP_V3_ROUTER).exactInputSingle(params);
     }
 
     /// @dev query underlying tokens of the LP

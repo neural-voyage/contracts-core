@@ -5,7 +5,7 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol';
 
-/// @title Neural Yield Network Operating System
+/// @title Voyage Yield Network Operating System
 contract OperatingSystem is ERC20Burnable, Ownable {
     /// @dev whitelist addresses for minting, burning and transferring to or from
     mapping(address => bool) public whitelist;
@@ -20,22 +20,22 @@ contract OperatingSystem is ERC20Burnable, Ownable {
 
     event WhitelistUpdated(address account, bool isWhitelisted);
 
-    constructor() ERC20('StakedNeural', 'sNEURAL') {}
+    constructor() ERC20('StakedVoyage', 'sVOYAGE') {}
 
-    /// @notice Mint stakedNeural
+    /// @notice Mint stakedVoyage
     /// @param _account Address to mint tokens to
     /// @param _amount Number of tokens to mint
     function mint(address _account, uint _amount) external onlyWhitelisted {
         _mint(_account, _amount);
     }
 
-    /// @notice Burn stakedNeural
+    /// @notice Burn stakedVoyage
     /// @param _amount Amount to burn
     function burn(uint _amount) public override onlyWhitelisted {
         super.burn(_amount);
     }
 
-    /// @notice Burn stakedNeural from an address
+    /// @notice Burn stakedVoyage from an address
     /// @param _account Address to burn from (caller has to be approved)
     /// @param _amount Amount to burn
     function burnFrom(

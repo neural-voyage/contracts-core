@@ -6,7 +6,6 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 import 'contracts/fees/INeuralFeeHandler.sol';
-
 import 'contracts/token/Neural.sol';
 import 'contracts/access/OracleManaged.sol';
 
@@ -26,8 +25,8 @@ contract NeuralFeeHandler is OracleManaged, ReentrancyGuard, INeuralFeeHandler {
     address public constant usdt = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
     address public neural;
-    address public immutable staking;
-    address public immutable treasury;
+    address public staking;
+    address public treasury;
 
     event FeeProcessed(
         uint buyBackAmount,
@@ -37,6 +36,8 @@ contract NeuralFeeHandler is OracleManaged, ReentrancyGuard, INeuralFeeHandler {
     event FeeUpdated(uint buyBackFee, uint treasuryFee, uint stakingFee);
     event ThresholdUpdated(uint threshold);
     event NeuralAddressAdded(address neural);
+    event TreasuryAddressUpdated(address treasury);
+    event StakingAddressUpdated(address staking);
 
     /// @param _oracle Oracle address
     /// @param _treasury Treasury address
@@ -68,6 +69,24 @@ contract NeuralFeeHandler is OracleManaged, ReentrancyGuard, INeuralFeeHandler {
         );
         neural = _neural;
         emit NeuralAddressAdded(neural);
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        require(
+            _treasury != address(0),
+            'NeuralFeeHandler: _treasury cannot be the zero address'
+        );
+        treasury = _treasury;
+        emit TreasuryAddressUpdated(_treasury);
+    }
+
+    function setStaking(address _staking) external onlyOwner {
+        require(
+            _staking != address(0),
+            'NeuralFeeHandler: _staking cannot be the zero address'
+        );
+        staking = _staking;
+        emit StakingAddressUpdated(_staking);
     }
 
     /// @notice Process USDT fee

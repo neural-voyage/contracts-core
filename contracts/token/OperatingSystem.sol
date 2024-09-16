@@ -20,7 +20,7 @@ contract OperatingSystem is ERC20Burnable, Ownable {
 
     event WhitelistUpdated(address account, bool isWhitelisted);
 
-    constructor() ERC20('StakedVoyage', 'sVOYAGE') {}
+    constructor() ERC20('Staked Voyage', 'sVOY') {}
 
     /// @notice Mint stakedVoyage
     /// @param _account Address to mint tokens to

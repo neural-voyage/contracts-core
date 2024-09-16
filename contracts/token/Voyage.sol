@@ -82,7 +82,7 @@ contract Voyage is Ownable, ERC20Burnable, ERC20Pausable {
     error BLACKLISTED();
     error FAIL_TO_SEND_ETH();
 
-    constructor() Ownable() ERC20('Voyage', 'VOYAGE') {
+    constructor() Ownable() ERC20('Voyage', 'VOY') {
         taxInfo.liquidityFee = 300; // 3%
         taxInfo.marketingFee = 300; // 3%
         uniswapFee = 3; // 0.3% (1000 = 100%)

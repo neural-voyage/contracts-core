@@ -320,6 +320,7 @@ contract Voyage is Ownable, ERC20Burnable, ERC20Pausable {
             )
         );
 
+        pair.sync();
         (uint256 rsv0, uint256 rsv1, ) = pair.getReserves();
         uint256 sellAmount = _calculateSwapInAmount(
             pair.token0() == address(this) ? rsv0 : rsv1,

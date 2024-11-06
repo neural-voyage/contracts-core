@@ -220,13 +220,14 @@ contract VoyageFeeHandler is OracleManaged, ReentrancyGuard, IVoyageFeeHandler {
         address[] memory path = new address[](2);
         path[0] = usdt;
         path[1] = voyage;
-        IUniswapV2Router02(router).swapExactTokensForTokens(
-            _amount,
-            _minVoyageAmount,
-            path,
-            address(this),
-            block.timestamp + 100
-        );
+        IUniswapV2Router02(router)
+            .swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                _amount,
+                _minVoyageAmount,
+                path,
+                address(this),
+                block.timestamp + 100
+            );
     }
 
     /// @dev Burn Voyage tokens

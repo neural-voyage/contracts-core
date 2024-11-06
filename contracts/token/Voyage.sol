@@ -221,8 +221,7 @@ contract Voyage is Ownable, ERC20Burnable, ERC20Pausable {
         address to,
         uint256 amount
     ) public override returns (bool) {
-        address owner = _msgSender();
-        _transferWithTax(owner, to, amount);
+        _transferWithTax(_msgSender(), to, amount);
         return true;
     }
 

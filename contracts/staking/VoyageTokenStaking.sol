@@ -9,6 +9,7 @@ contract VoyageTokenStaking is VoyageStaking {
     OperatingSystem public immutable receipt;
 
     /// @param _voyage Voyage token
+    /// @param _rewardToken Reward token
     /// @param _operatingSystem Voyage governance token
     /// @param _totalRewards Total rewards allocated for the contract
     /// @param _minimumDeposit Minimum deposit amount
@@ -18,6 +19,7 @@ contract VoyageTokenStaking is VoyageStaking {
     /// @param _apr12Month APR for 12 month to 1 d.p. e.g. 365 = 36.5%
     constructor(
         address _voyage,
+        address _rewardToken,
         address _operatingSystem,
         uint _totalRewards,
         uint _minimumDeposit,
@@ -28,7 +30,7 @@ contract VoyageTokenStaking is VoyageStaking {
     )
         VoyageStaking(
             _voyage,
-            _voyage,
+            _rewardToken,
             _totalRewards,
             _minimumDeposit,
             _apr1Month,

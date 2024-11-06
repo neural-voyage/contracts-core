@@ -130,6 +130,9 @@ contract Voyage is Ownable, ERC20Burnable, ERC20Pausable {
         uint256 liquidityFee,
         uint256 marketingFee
     ) external onlyOwner {
+        uint256 totalFee = liquidityFee + marketingFee;
+        if (totalFee == 0 || totalFee >= MULTIPLIER) revert INVALID_FEE();
+
         taxInfo.liquidityFee = liquidityFee;
         taxInfo.marketingFee = marketingFee;
 

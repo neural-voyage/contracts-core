@@ -196,6 +196,14 @@ contract Voyage is Ownable, ERC20Burnable, ERC20Pausable {
         }
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     /* ======== PUBLIC FUNCTIONS ======== */
 
     function transfer(
